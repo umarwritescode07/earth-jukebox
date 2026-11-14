@@ -172,6 +172,10 @@ karo. Build aur tests check karne ke baad sirf apni relevant files commit karo.
 Agar push par "authentication" error aaye to pehle GitHub login check karo (`gh auth login` ya GitHub Desktop).
 Secrets (API keys, tokens) kabhi code ya commit mein na daalo — sirf `.env.local` mein rakho.
 
+## Standalone climate audio prototype
+
+The separate Vite/Tone.js prototype is in [audio-prototype/](./audio-prototype/). It explores 15 selected temperature-anomaly sample points; it is not the complete annual NASA record. See [audio-prototype/README.md](./audio-prototype/README.md) for setup and run instructions.
+
 ## Credits
 
 All imagery: NASA Scientific Visualization Studio; individual visualizer, scientist and dataset credits are shown in
