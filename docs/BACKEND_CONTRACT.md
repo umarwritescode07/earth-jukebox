@@ -5,11 +5,14 @@ Status on 2026-11-14:
 - The repository contained **no backend code or API documentation** when the frontend was built.
 - **Events feed — CONFIRMED format** (sample shared by the backend teammate): a JSON array of
   `{ title, category, date, latitude, longitude }`. Endpoint path not yet known (assumed `/events`, configurable).
+- **Ocean & temperature series — CONFIRMED format** (sample shared by the backend teammate): a JSON array of
+  `{ date: "YYYYMMDD", temperature_celsius, ocean_intensity }`. Endpoint path not yet known (assumed `/ocean-temp`,
+  configurable). The teammate's separate temperature-only list was explicitly marked "do not use" and is not stored.
 - **Feature stream — PROPOSED** by the frontend as `ejb.backend/1` (below). Isolated in
   `src/contracts/backend-v1.ts` + `src/data/backend-client.ts`; nothing else depends on the wire format.
 
-A runnable reference implementation of both lives in `tools/reference-backend/server.mjs` (serves real image-derived
-features of SVS 5313 and the teammate's sample events). It is for development/tests, not production.
+A runnable reference implementation of all three lives in `tools/reference-backend/server.mjs` (serves real image-derived
+features of SVS 5313, the teammate's sample events and the sample ocean series). It is for development/tests, not production.
 
 ## How the browser reaches the backend
 
@@ -20,7 +23,8 @@ browser ──► /api/backend/<path>  (Next.js route, same origin)  ──► $
 - No CORS configuration is needed on the backend: only the Next.js server calls it.
 - `EJB_BACKEND_URL`, `EJB_EVENTS_PATH` and `EJB_BACKEND_TOKEN` are **server-only**. The token, if set, is sent as
   `Authorization: Bearer …` by the proxy. No secret is ever bundled into browser code.
-- Only these paths/methods are forwarded (anything else ⇒ 404/405):
+- The ocean series has its own route, `GET /api/ocean-temp` (`src/app/api/ocean-temp/route.ts`), described below.
+- Only these paths/methods are forwarded by `/api/backend/…` (anything else ⇒ 404/405):
   `GET events`, `GET v1/health`, `GET v1/sources`, `POST v1/sessions`, `DELETE v1/sessions/{id}`,
   `GET v1/sessions/{id}/features`.
 - Timeouts: proxy 8 s; client 5 s per request, ≤ 2 retries (exponential backoff) for retryable failures only.
@@ -51,6 +55,35 @@ Questions for the backend team:
    should confirm it is acceptable under the challenge rules before relying on it.
 2. Final endpoint path, and whether an `id` field can be added.
 3. Should events be sonified? (Today they are visual + list only.)
+
+## 1b. Ocean & temperature series (confirmed format)
+
+Backend: `GET {EJB_BACKEND_URL}{EJB_OCEAN_TEMP_PATH}` (default path `/ocean-temp`) → `200 application/json`
+
+```json
+[
+  { "date": "20230101", "temperature_celsius": 25.32, "ocean_intensity": 6.2 },
+  { "date": "20230102", "temperature_celsius": 25.65, "ocean_intensity": 7.71 }
+]
+```
+
+Frontend: `GET /api/ocean-temp` returns the **same array format**, plus headers that state where it came from:
+
+| Header | Values |
+| --- | --- |
+| `x-ejb-data-source` | `backend` (validated backend data) or `sample` (teammate's sample payload) |
+| `x-ejb-fallback-reason` | `backend-not-configured`, `backend-unreachable`, `backend-http-<status>`, `backend-invalid-json`, `backend-invalid-payload` |
+| `x-ejb-rejected-records` | number of backend records dropped by validation or as duplicate dates |
+
+Validation (`src/contracts/ocean-temp.ts`): `date` must be `YYYYMMDD` and a real calendar date; `temperature_celsius`
+a number in [-90, 60] (garbage filter only); `ocean_intensity` a number ≥ 0. Invalid records are dropped and counted;
+duplicate dates keep the first; records are sorted by date. Nothing is repaired or interpolated.
+
+Questions for the backend team (shown in the UI as "not yet documented"):
+1. Upstream dataset and API — is it one of the challenge resources?
+2. Location (point / region) and which temperature this is (sea surface, air, …).
+3. Meaning, unit and scale of `ocean_intensity` (today it is scaled relative to the loaded series).
+4. Time zone / averaging period of each daily value, and the expected date range.
 
 ## 2. Feature stream `ejb.backend/1` (proposed)
 
@@ -171,8 +204,9 @@ shows "reconnecting" and keeps retrying with backoff (≤ 6 times) before report
 
 1. A reachable base URL for `EJB_BACKEND_URL` (server-to-server; CORS not required).
 2. The events endpoint path (`EJB_EVENTS_PATH`) and confirmation of the upstream NASA API.
-3. Either implement `ejb.backend/1` as above, or send the real contract — only `src/contracts/backend-v1.ts` and
+3. The ocean/temperature endpoint path (`EJB_OCEAN_TEMP_PATH`) and answers to the four questions in section 1b.
+4. Either implement `ejb.backend/1` as above, or send the real contract — only `src/contracts/backend-v1.ts` and
    `src/data/backend-client.ts` need to change.
-4. If authentication is needed, a token for `EJB_BACKEND_TOKEN` (kept server-side).
-5. For pollutant-specific layers or a geographic globe: genuinely separated pollutant fields and verified
+5. If authentication is needed, a token for `EJB_BACKEND_TOKEN` (kept server-side).
+6. For pollutant-specific layers or a geographic globe: genuinely separated pollutant fields and verified
    coordinates/projection, flagged via `capabilities`.

@@ -49,13 +49,13 @@ export function ListeningPanel({
   snap,
   controller,
   health,
-  eventsView = false,
+  otherView = null,
 }: {
   source: SourceDefinition | null;
   snap: ControllerSnapshot;
   controller: PlaybackController | null;
   health: BackendHealth;
-  eventsView?: boolean;
+  otherView?: "events" | "ocean" | null;
 }) {
   if (!source || !controller) {
     return (
@@ -64,9 +64,11 @@ export function ListeningPanel({
           What you are hearing
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {eventsView
+          {otherView === "events"
             ? "The backend events view is visual and text only: events are not sonified yet. Choose a NASA visualization from the library to listen."
-            : "Choose a visualization from the library."}
+            : otherView === "ocean"
+              ? "The ocean & temperature series has its own controls, mapping rules and data table in the centre panel. It is backend numerical data, not a NASA challenge visualization."
+              : "Choose a visualization from the library."}
         </p>
       </section>
     );

@@ -14,7 +14,7 @@ import { useMediaTime } from "@/hooks/use-jukebox";
 import { cn } from "@/lib/utils";
 import type { ControllerSnapshot, PlaybackController } from "@/playback/controller";
 
-function A11ySlider(props: {
+export function A11ySlider(props: {
   label: string;
   value: number;
   min: number;

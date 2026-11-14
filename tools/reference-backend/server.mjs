@@ -11,6 +11,8 @@
  *    (tests/fixtures/svs5313-features.json).
  *  - Events: the sample payload shared by the backend teammate
  *    (src/data/fixtures/backend-events-sample.json).
+ *  - Ocean/temperature series: the teammate's "Clean Ocean Data" sample
+ *    (src/data/fixtures/ocean-temp-sample.json), in the agreed format.
  *
  * Usage: node tools/reference-backend/server.mjs [--port 3299]
  * Test controls: POST /__control {"mode":"up"|"down"|"slow"|"shuffle"}
@@ -24,6 +26,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const port = Number(process.argv[process.argv.indexOf("--port") + 1]) || 3299;
 const frames = JSON.parse(readFileSync(path.join(ROOT, "tests/fixtures/svs5313-features.json"), "utf8"));
 const events = JSON.parse(readFileSync(path.join(ROOT, "src/data/fixtures/backend-events-sample.json"), "utf8"));
+const oceanTemp = JSON.parse(readFileSync(path.join(ROOT, "src/data/fixtures/ocean-temp-sample.json"), "utf8"));
 const SOURCE = { source_id: "svs-5313", asset_id: "svs5313-nightlights-eic", duration_s: 43.333333 };
 
 let mode = "up"; // up | down | slow | shuffle
@@ -68,6 +71,7 @@ const server = createServer(async (req, res) => {
     return send(res, 200, { status: "ok", contract_version: "ejb.backend/1", service: "earth-jukebox reference backend", time: new Date().toISOString() });
   }
   if (req.method === "GET" && url.pathname === "/events") return send(res, 200, events);
+  if (req.method === "GET" && url.pathname === "/ocean-temp") return send(res, 200, oceanTemp);
   if (req.method === "GET" && url.pathname === "/v1/sources") {
     return send(res, 200, { sources: [{ source_id: SOURCE.source_id, asset_ids: [SOURCE.asset_id], status: "ready" }] });
   }

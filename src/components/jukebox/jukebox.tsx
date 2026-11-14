@@ -4,23 +4,25 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 
 import { EventsView } from "@/components/jukebox/events-view";
+import { OceanTempView } from "@/components/jukebox/ocean-temp-view";
 import { AppHeader } from "@/components/jukebox/header";
 import { SourceLibrary, readinessOf } from "@/components/jukebox/library";
 import { ListeningPanel } from "@/components/jukebox/listening-panel";
 import { PlaybackBar } from "@/components/jukebox/playback-bar";
 import { Stage } from "@/components/jukebox/stage";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useBackendHealth, useController, useEventFeed, usePreferences, usePreparedMedia } from "@/hooks/use-jukebox";
+import { useBackendHealth, useController, useEventFeed, useOceanTempSeries, usePreferences, usePreparedMedia } from "@/hooks/use-jukebox";
 import { getManifestAsset, renditionsFor } from "@/registry/manifest";
 import { SOURCES, getSource } from "@/registry/sources";
 
-type View = "nasa" | "events";
+type View = "nasa" | "events" | "ocean";
 
 export function Jukebox() {
   const { controller, snap } = useController();
   const prepared = usePreparedMedia();
   const { health, recheck } = useBackendHealth();
   const feed = useEventFeed();
+  const oceanSeries = useOceanTempSeries();
   const [prefs, setPrefs, reducedMotion] = usePreferences();
   const [view, setView] = useState<View>("nasa");
   const [announcement, setAnnouncement] = useState("");
@@ -110,14 +112,19 @@ export function Jukebox() {
           <Tabs
             value={view}
             onValueChange={(v) => {
-              if (v === "events") controller?.pause();
+              if (v !== "nasa") controller?.pause(); // the ocean player pauses itself when its view unmounts
               setView(v as View);
             }}
             className="gap-3"
           >
-            <TabsList aria-label="Workspace view">
-              <TabsTrigger value="nasa">NASA visualizations (sonified)</TabsTrigger>
-              <TabsTrigger value="events" data-testid="events-tab">
+            <TabsList aria-label="Workspace view" className="max-w-full flex-wrap group-data-horizontal/tabs:h-auto" data-testid="view-tabs">
+              <TabsTrigger value="nasa" className="h-8">
+                NASA visualizations (sonified)
+              </TabsTrigger>
+              <TabsTrigger value="ocean" data-testid="ocean-tab" className="h-8">
+                Ocean &amp; temperature (backend)
+              </TabsTrigger>
+              <TabsTrigger value="events" data-testid="events-tab" className="h-8">
                 Backend events globe
               </TabsTrigger>
             </TabsList>
@@ -144,6 +151,9 @@ export function Jukebox() {
                 </div>
               )}
             </TabsContent>
+            <TabsContent value="ocean">
+              <OceanTempView series={oceanSeries} controller={controller} snap={snap} />
+            </TabsContent>
             <TabsContent value="events">
               <EventsView feed={feed} autoRotate={animate} />
             </TabsContent>
@@ -151,7 +161,7 @@ export function Jukebox() {
         </main>
 
         <aside aria-label="Listening panel" className="order-3">
-          <ListeningPanel source={view === "nasa" ? source : null} snap={snap} controller={controller} health={health} eventsView={view === "events"} />
+          <ListeningPanel source={view === "nasa" ? source : null} snap={snap} controller={controller} health={health} otherView={view === "nasa" ? null : view} />
         </aside>
       </div>
 

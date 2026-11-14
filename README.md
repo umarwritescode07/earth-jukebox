@@ -60,6 +60,7 @@ Copy `.env.example` to `.env.local`. All variables are **server-side only**; not
 | --- | --- |
 | `EJB_BACKEND_URL` | Base URL of the team backend. Unset ⇒ "Backend not configured", local NASA analysis only. |
 | `EJB_EVENTS_PATH` | Path of the events array endpoint on the backend (default `/events`). |
+| `EJB_OCEAN_TEMP_PATH` | Path of the ocean + temperature series endpoint on the backend (default `/ocean-temp`). |
 | `EJB_BACKEND_TOKEN` | Optional bearer token added by the server proxy. Never exposed to the browser. |
 
 Behind an HTTPS proxy, start Next with `NODE_USE_ENV_PROXY=1` so server-side `fetch` (media passthrough, backend proxy) uses it.
@@ -77,6 +78,11 @@ Behind an HTTPS proxy, start Next with `NODE_USE_ENV_PROXY=1` so server-side `fe
   data-path selection (local analysis vs backend) and measured sync diagnostics.
 - **Playback bar**: play/pause, restart, seek, mute, volume (dB), speed 0.5–2×, loop, and a spectrum + level meter
   measured from the real audio output.
+- **Ocean & temperature series** (`/api/ocean-temp`, file `src/app/api/ocean-temp/route.ts`): the backend's daily
+  `{ date, temperature_celsius, ocean_intensity }` array, sonified one day per beat — temperature → piano pitch
+  (+1 semitone per 0.1 °C above the series median), ocean intensity → surf (noise) loudness and swell rate — with two
+  small-multiple charts, a full data table and the exact note/wave level per day. Until the endpoint is live the route
+  serves the teammate's sample, labelled **"Sample backend payload — not live"** (header `x-ejb-data-source`).
 - **Backend events globe**: the teammate's event payload on a procedural 3D globe (no basemap imagery) plus an
   accessible list. Until the API is live it shows the shared sample, labelled **"Sample backend payload — not live"**.
 - **Accessibility**: landmarks, skip link, full keyboard operation (shortcuts K / J / L / M), visible focus, named

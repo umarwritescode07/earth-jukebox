@@ -218,6 +218,14 @@ test("mobile layout has no horizontal overflow and an unobstructed play button",
   const topEl = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-testid]")?.getAttribute("data-testid"), [box.x + box.width / 2, box.y + box.height / 2]);
   expect(topEl).toBe("play-toggle");
   await page.screenshot({ path: "test-results/mobile.png", fullPage: false });
+  await page.getByTestId("ocean-tab").click();
+  await expect(page.getByTestId("ocean-table")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  // the wrapped view tabs must not overlap the panel below them
+  const tabs = (await page.getByTestId("view-tabs").boundingBox())!;
+  const heading = (await page.locator("#ocean-heading").boundingBox())!;
+  expect(heading.y).toBeGreaterThanOrEqual(tabs.y + tabs.height);
+  await page.screenshot({ path: "test-results/mobile-ocean.png", fullPage: true });
   await ctx.close();
 });
 
@@ -267,6 +275,9 @@ test("automated WCAG 2.1 AA scan (axe-core) finds no violations in either view",
   await page.getByTestId("events-tab").click();
   await expect(page.getByTestId("events-source")).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
+  await page.getByTestId("ocean-tab").click();
+  await expect(page.getByTestId("ocean-table")).toBeVisible();
+  expect(await axeViolations(page)).toEqual([]);
 });
 
 test("returning from the events view keeps the playback position", async ({ page }) => {
@@ -280,4 +291,51 @@ test("returning from the events view keeps the playback position", async ({ page
   await page.waitForTimeout(800);
   const t = await page.getByTestId("nasa-video").evaluate((v: HTMLVideoElement) => v.currentTime);
   expect(t).toBeGreaterThan(7.5);
+});
+
+type OceanDiag = { status: string; dayIndex: number; stepsScheduled: number; skippedSteps: number; engine: { notes: number; outputRms: number; leadTimesS: number[] } | null };
+const oceanDiag = (page: Page) => page.evaluate(() => (window as unknown as { __ejbOceanDiagnostics: () => unknown }).__ejbOceanDiagnostics() as OceanDiag);
+
+test("ocean & temperature series: backend data is sonified day by day and stops cleanly", async ({ page }) => {
+  await countAudioContexts(page);
+  await open(page, "svs-3912");
+  await page.getByTestId("play-toggle").click(); // NASA playing first
+  await expect(status(page)).toHaveText("playing");
+  await page.getByTestId("ocean-tab").click();
+  await expect(page.getByTestId("ocean-source")).toHaveText("From backend");
+  await expect(page.getByTestId("ocean-table").locator("tbody tr")).toHaveCount(10);
+  await page.getByTestId("ocean-play").click();
+  await expect(page.getByTestId("ocean-status")).toHaveText("playing");
+  await page.waitForTimeout(2600); // 1 s per day
+  let d = await oceanDiag(page);
+  expect(d.stepsScheduled).toBeGreaterThanOrEqual(3);
+  expect(d.skippedSteps).toBe(0);
+  expect(d.engine!.notes).toBeGreaterThan(0);
+  expect(d.engine!.outputRms).toBeGreaterThan(0);
+  expect(Math.min(...d.engine!.leadTimesS)).toBeGreaterThanOrEqual(0);
+  await expect(page.getByTestId("ocean-hearing")).toHaveText(/°C → piano note [A-G]/);
+  await expect(page.getByTestId("ocean-table").locator('tr[aria-current="true"]')).toHaveCount(1);
+  // only one sonification at a time, one AudioContext
+  expect((await diag(page)).sourceId).toBe("svs-3912");
+  expect(await page.evaluate(() => (window as unknown as { __audioContexts: number }).__audioContexts)).toBe(1);
+
+  await page.getByTestId("ocean-play").click();
+  await expect(page.getByTestId("ocean-status")).toHaveText("paused");
+  await page.waitForTimeout(400);
+  d = await oceanDiag(page);
+  expect(d.engine!.outputRms).toBeLessThan(1e-4);
+
+  // chart is readable with the keyboard
+  await page.getByTestId("ocean-chart").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("ocean-chart").getByRole("status")).toContainText("2023-01-01");
+});
+
+test("ocean series falls back to the labelled sample when the backend is down", async ({ page, request }) => {
+  await request.post(`${BACKEND}/__control`, { data: { mode: "down" } });
+  await page.goto("/");
+  await page.getByTestId("ocean-tab").click();
+  await expect(page.getByTestId("ocean-source")).toHaveText("Sample backend payload — not live");
+  await expect(page.getByText(/backend answered HTTP 503/)).toBeVisible();
+  await expect(page.getByTestId("ocean-table").locator("tbody tr")).toHaveCount(10);
 });

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 
 import type { EarthEvent } from "@/contracts/events";
 import { parseEarthEvents } from "@/contracts/events";
+import { parseOceanTemp, type OceanTempRecord } from "@/contracts/ocean-temp";
 import { BackendClient, BackendError } from "@/data/backend-client";
 import { SAMPLE_EVENTS_PAYLOAD } from "@/data/fixtures/backend-events-sample";
 import { getPageController, type ControllerSnapshot, type PlaybackController } from "@/playback/controller";
@@ -258,4 +259,51 @@ export function usePreferences(): [Preferences, (p: Partial<Preferences>) => voi
   }, [prefs]);
   const reducedMotion = prefs.reduceMotion === "on" || (prefs.reduceMotion === "system" && systemReduced);
   return [prefs, writePrefs, reducedMotion];
+}
+
+/* ---------------- ocean + temperature series ---------------- */
+
+export interface OceanTempState {
+  status: "loading" | "backend" | "sample" | "error";
+  records: OceanTempRecord[];
+  rejected: number;
+  /** Why the sample payload is shown (only when status === "sample"). */
+  reason: string | null;
+  error: string | null;
+}
+
+const FALLBACK_REASONS: Record<string, string> = {
+  "backend-not-configured": "The backend URL is not configured yet.",
+  "backend-unreachable": "The backend did not respond.",
+  "backend-invalid-json": "The backend returned a body that is not JSON.",
+  "backend-invalid-payload": "The backend response failed validation.",
+};
+
+/** Loads /api/ocean-temp and reports honestly whether the data came from the backend or the sample. */
+export function useOceanTempSeries(): OceanTempState & { reload: () => void } {
+  const [state, setState] = useState<OceanTempState>({ status: "loading", records: [], rejected: 0, reason: null, error: null });
+  const [nonce, setNonce] = useState(0);
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetch("/api/ocean-temp", { signal: ctl.signal, cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const source = r.headers.get("x-ejb-data-source");
+        const parsed = parseOceanTemp(await r.json());
+        if (parsed.error) throw new Error(parsed.error);
+        const reasonCode = r.headers.get("x-ejb-fallback-reason") ?? "";
+        setState({
+          status: source === "backend" ? "backend" : "sample",
+          records: parsed.records,
+          rejected: parsed.rejected + parsed.duplicates + Number(r.headers.get("x-ejb-rejected-records") ?? 0),
+          reason: source === "backend" ? null : (FALLBACK_REASONS[reasonCode] ?? (reasonCode.startsWith("backend-http-") ? `The backend answered HTTP ${reasonCode.slice(13)} for the ocean/temperature endpoint.` : "Using the sample payload.")),
+          error: null,
+        });
+      })
+      .catch((err) => {
+        if (!ctl.signal.aborted) setState({ status: "error", records: [], rejected: 0, reason: null, error: String(err?.message ?? err) });
+      });
+    return () => ctl.abort();
+  }, [nonce]);
+  return { ...state, reload: () => setNonce((n) => n + 1) };
 }

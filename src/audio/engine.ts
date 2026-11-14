@@ -14,6 +14,7 @@
 import type * as ToneNS from "tone";
 
 import type { StepDecision } from "@/audio/mapping";
+import type { OceanStep } from "@/audio/ocean-mapping";
 import type { VoiceId } from "@/registry/types";
 
 export type ToneModule = typeof ToneNS;
@@ -51,6 +52,7 @@ export class SonificationEngine {
   private readonly master: ToneNS.Volume;
   private readonly fft: ToneNS.Analyser;
   private readonly wave: ToneNS.Analyser;
+  private ocean: { piano: ToneNS.FMSynth; surfLevel: ToneNS.Gain; swell: ToneNS.LFO; noise: ToneNS.Noise } | null = null;
   private stateListeners = new Set<(state: AudioContextState) => void>();
   private readonly onStateChange = () => this.stateListeners.forEach((l) => l(this.state));
 
@@ -193,6 +195,67 @@ export class SonificationEngine {
       p.linearRampToValueAtTime(0, now + 0.03);
     }
     for (const v of Object.values(this.voices)) v.triggerRelease(now + 0.03);
+    if (this.ocean) {
+      const p = this.ocean.surfLevel.gain;
+      p.cancelScheduledValues(now);
+      p.setValueAtTime(p.getValueAtTime(now), now);
+      p.linearRampToValueAtTime(0, now + 0.03);
+      this.ocean.piano.triggerRelease(now + 0.03);
+    }
+  }
+
+  /**
+   * Voices for the backend ocean/temperature series, created on first use:
+   * an FM "electric piano" for temperature and pink-noise surf (low-passed,
+   * swelling with a slow LFO) for ocean_intensity. Both go through the same gate,
+   * master volume and limiter. The noise is a timbre; note choice stays deterministic.
+   */
+  /** Build the ocean voices ahead of time (noise buffer + FM synth): never inside a scheduling tick. */
+  prepareOcean(): void {
+    this.ensureOceanVoices();
+  }
+
+  private ensureOceanVoices() {
+    if (this.ocean) return this.ocean;
+    const T = this.T;
+    const piano = new T.FMSynth({
+      harmonicity: 3,
+      modulationIndex: 10,
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.004, decay: 0.9, sustain: 0.15, release: 1.2 },
+      modulation: { type: "sine" },
+      modulationEnvelope: { attack: 0.002, decay: 0.35, sustain: 0.05, release: 0.6 },
+      volume: -12,
+    });
+    const noise = new T.Noise({ type: "pink", volume: -14 });
+    const filter = new T.Filter({ frequency: 900, type: "lowpass", rolloff: -24, Q: 0.5 });
+    const swellGain = new T.Gain(0.5);
+    const swell = new T.LFO({ frequency: 0.2, min: 0.2, max: 1 });
+    const surfLevel = new T.Gain(0);
+    noise.chain(filter, swellGain, surfLevel, this.gate);
+    swell.connect(swellGain.gain);
+    piano.connect(this.gate);
+    noise.start();
+    swell.start();
+    this.nodes.push(piano, noise, filter, swellGain, swell, surfLevel);
+    this.ocean = { piano, surfLevel, swell, noise };
+    return this.ocean;
+  }
+
+  /** Schedule one day of the ocean/temperature series at audio time `at`. */
+  applyOcean(step: OceanStep, at: number, dayAudioS: number, layers: { piano: boolean; waves: boolean }, pianoVelocity: number): void {
+    if (this.disposed) return;
+    const o = this.ensureOceanVoices();
+    this.metrics.leadTimesS.push(at - this.now());
+    if (this.metrics.leadTimesS.length > 64) this.metrics.leadTimesS.shift();
+    if (layers.piano) {
+      o.piano.triggerAttackRelease(this.T.Frequency(step.midi, "midi").toFrequency(), Math.max(0.08, dayAudioS * 0.85), at, pianoVelocity);
+      this.metrics.notes++;
+    }
+    const ramp = Math.min(0.4, dayAudioS * 0.5);
+    o.surfLevel.gain.cancelScheduledValues(at);
+    o.surfLevel.gain.linearRampToValueAtTime(layers.waves ? 0.8 * step.waveGain : 0, at + ramp);
+    o.swell.frequency.linearRampToValueAtTime(step.swellHz, at + ramp);
   }
 
   /** Schedule one step. `stepAudioS` is the step length in audio seconds (stepS / rate). */

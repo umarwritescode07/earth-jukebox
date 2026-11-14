@@ -84,3 +84,25 @@ Values above the ceiling clip, so loud moments stay bounded. Measured p90 (2026-
 Measured synchronisation (Chromium 153, headless, see [TESTING.md](TESTING.md)): video-frame vs audio-clock drift
 mean 6–32 ms, max ≤ 41 ms across all nine sources, zero re-anchors; scheduling lead 74–119 ms, never in the past.
 These are browser measurements of the clock relationship, not acoustic measurements at the speaker.
+
+## Ocean & temperature series (backend numerical data)
+
+Separate from the NASA imagery: daily values supplied by the backend (origin *numerical data*; dataset, location,
+which temperature, and the meaning/unit of `ocean_intensity` are not yet documented and the UI says so).
+Code: `src/audio/ocean-mapping.ts` (pure rules), `src/audio/ocean-player.ts` (scheduling),
+`SonificationEngine.applyOcean` (voices).
+
+| Value | Sound | Rule |
+| --- | --- | --- |
+| date | Beat | one day per beat, fixed tempo (0.5–3 s per day selectable); tempo never encodes data, so the time axis stays honest |
+| `temperature_celsius` | Piano pitch (FM electric piano) | `C4 + round((T − median) × 10)` semitones — +1 semitone per 0.1 °C above the series median, clipped to ±12 (clipping shown in the table) |
+| `ocean_intensity` | Surf: pink noise → low-pass 900 Hz → swell LFO | loudness `0.12 + 0.88 × level` and swell `0.12 + 0.38 × level` per second, where `level` = position within the loaded series' min–max (unit/scale undocumented) |
+
+For the sample: median 25.665 °C (C4); 26.04 °C → E4, 25.32 °C → A3; intensity 4.98 → 12 %, 7.71 → 100 %.
+Every day's value, note and wave level is listed in the view's data table.
+
+Clock and scheduling follow the same rules as the NASA player: a `PlaybackClock` on the Web Audio time base (unit:
+days, rate = 1 / seconds-per-day, so speed changes don't jump), 120 ms look-ahead from the worker wake-up, the first
+day is fixed at start (not at the next wake-up), late days are skipped never replayed, heavy voice setup (noise buffer)
+happens before the clock starts. The same engine, gate, master volume and limiter are used; starting this player
+pauses the NASA controller, and leaving its view pauses it, so only one sonification plays at a time.

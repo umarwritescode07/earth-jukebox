@@ -460,12 +460,12 @@ export class PlaybackController {
 
   setVolumeDb(db: number): void {
     const v = Math.min(0, Math.max(-60, db));
-    this.engine?.setVolumeDb(v);
+    (this.engine ?? SonificationEngine.current())?.setVolumeDb(v);
     this.update({ volumeDb: v });
   }
 
   setMuted(muted: boolean): void {
-    this.engine?.setMuted(muted);
+    (this.engine ?? SonificationEngine.current())?.setMuted(muted);
     this.update({ muted });
   }
 

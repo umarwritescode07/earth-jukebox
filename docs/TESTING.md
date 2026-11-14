@@ -9,9 +9,9 @@ Run on 2026-11-14 in a Linux cloud container (4 vCPU). **Browser actually tested
 | --- | --- | --- |
 | Type check (strict) | `npm run typecheck` | pass |
 | Lint (Next + React Compiler rules) | `npm run lint` | pass, 0 problems |
-| Unit tests | `npm test` | **45 passed** (5 files) |
+| Unit tests | `npm test` | **55 passed** (6 files) |
 | Production build | `npm run build` | pass (Next 16.4.6, Turbopack) |
-| Browser E2E | `npm run test:e2e` against `next start` + reference backend | **12 passed** |
+| Browser E2E | `npm run test:e2e` against `next start` + reference backend | **14 passed** |
 | Calibration on real media | `npx vitest run --config vitest.calibration.config.mts --reporter=verbose` | 9 sources measured |
 | Media preparation | `npm run media:prepare` | 9 assets; frame counts identical to originals; no audio streams |
 
@@ -34,6 +34,12 @@ date table, the teammate's event payload); synthetic data only for structural er
 - clock: anchor math for start/pause/seek/rate; re-anchoring only beyond the drift threshold;
 - backend client: validation, bounded retries, no retry on non-retryable errors, timeout, cancellation, per-frame
   rejection of invalid/foreign frames, stale-response rejection, event payload parsing;
+- ocean/temperature: the teammate's sample parses exactly (10 days, none rejected, the excluded temperature-only list
+  absent); invalid dates (20230230, wrong format), string numbers, negative intensity and duplicate dates are dropped;
+  pitch rises monotonically with temperature at 1 semitone / 0.1 °C around the median; wave loudness and swell rise
+  with intensity; clipping and flat-series cases; determinism; `/api/ocean-temp` serves the labelled sample when not
+  configured, validated backend data (path + server-side token) when configured, and labelled fallbacks on HTTP
+  errors, invalid payloads and network failures;
 - routes: backend not configured (no URL leak), path/method allowlist, server-side token, events path mapping;
   media passthrough refuses unapproved ids/URLs, refuses size mismatch, forwards a single byte range.
 
@@ -52,8 +58,14 @@ Browser E2E (`tests/e2e/jukebox.spec.ts`, real NASA derivatives, real Web Audio)
 9. Backend path via reference backend: connected badge, feature windows arrive; simulated outage → "reconnecting";
    recovery with out-of-order + duplicate frames → "active", frames deduplicated, playback continues.
 10. Events globe from backend: 5 events, selection, keyboard rotation.
-11. axe-core WCAG 2.1 A/AA scan: **0 violations** in the NASA view (Listen and Mapping tabs) and the events view.
+11. axe-core WCAG 2.1 A/AA scan: **0 violations** in the NASA view (Listen and Mapping tabs), the events view and the
+    ocean view.
 12. Leaving the NASA view and returning keeps the playback position.
+13. Ocean & temperature: data "From backend" (reference backend), 10-row table, NASA playback paused when the series
+    plays, ≥ 3 days scheduled in 2.6 s with none skipped and none late, output RMS > 0, "what you are hearing" names the
+    note, current table row marked, pause → silence, chart readable with arrow keys, one AudioContext.
+14. Ocean series with the backend down: labelled "Sample backend payload — not live" with the HTTP 503 reason.
+    (Mobile test 8 also checks the ocean view: no overflow, wrapped view tabs don't overlap the panel.)
 
 ## Measured synchronisation (Chromium 153, headless)
 
@@ -62,8 +74,8 @@ Drift = master clock (Web Audio) vs. decoded NASA video frame times (`requestVid
 
 | Run | Mean |drift| | Max |drift| | Frames | Re-anchors | Scheduling lead |
 | --- | --- | --- | --- | --- | --- |
-| E2E test 1 (production build, final run) | 5.2 ms | 11.5 ms | 179 | 0 | 95–119 ms |
-| Earlier E2E runs (dev / production) | 6.0–11.1 ms | 11.9–16.1 ms | 174–178 | 0 | 81–119 ms |
+| E2E test 1 (production build, final run) | 2.7 ms | 6.1 ms | 178 | 0 | 98–120 ms |
+| Earlier E2E runs (dev / production) | 5.2–11.1 ms | 11.5–16.1 ms | 174–179 | 0 | 81–119 ms |
 
 All-sources sweep on the production build (select while previous source plays → play 3 s → +10 s seek → 2.5 s):
 
@@ -93,7 +105,8 @@ of `localhost` (use `localhost`, or add `allowedDevOrigins`).
 ## Not verified / remaining dependencies
 
 - **Real backend**: not available; only the reference backend implementing the *proposed* contract was tested. The
-  events endpoint path and upstream API are unconfirmed. Integration must be re-tested against the teammate's server.
+  events and ocean/temperature endpoint paths and upstream APIs are unconfirmed; the ocean series' dataset, location
+  and `ocean_intensity` definition are undocumented. Integration must be re-tested against the teammate's server.
 - **Browsers**: Firefox, Safari (macOS/iOS), Edge and real mobile devices untested (H.264 decode, `requestVideoFrameCallback`
   and `getOutputTimestamp` support differ; the code has fallbacks but they were not exercised).
 - **Audio perception**: levels, timbre balance and limiter behaviour were checked numerically (RMS, spectrum), not by
