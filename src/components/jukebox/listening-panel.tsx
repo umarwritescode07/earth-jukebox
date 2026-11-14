@@ -44,14 +44,30 @@ function hearingSentences(source: SourceDefinition, snap: ControllerSnapshot): s
   return out;
 }
 
-export function ListeningPanel({ source, snap, controller, health }: { source: SourceDefinition | null; snap: ControllerSnapshot; controller: PlaybackController | null; health: BackendHealth }) {
+export function ListeningPanel({
+  source,
+  snap,
+  controller,
+  health,
+  eventsView = false,
+}: {
+  source: SourceDefinition | null;
+  snap: ControllerSnapshot;
+  controller: PlaybackController | null;
+  health: BackendHealth;
+  eventsView?: boolean;
+}) {
   if (!source || !controller) {
     return (
       <section aria-labelledby="listening-heading" className="rounded-xl border border-border bg-card/70 p-4">
         <h2 id="listening-heading" className="text-sm font-semibold">
           What you are hearing
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">Choose a visualization from the library.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {eventsView
+            ? "The backend events view is visual and text only: events are not sonified yet. Choose a NASA visualization from the library to listen."
+            : "Choose a visualization from the library."}
+        </p>
       </section>
     );
   }

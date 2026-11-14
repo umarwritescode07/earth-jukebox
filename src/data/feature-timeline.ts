@@ -39,6 +39,7 @@ export class FeatureTimeline {
   /** Clears everything and starts a new generation for the given source/asset. */
   reset(sourceId: string | null, assetId: string | null): number {
     this.frames = [];
+    Object.assign(this.stats, { inserted: 0, duplicates: 0, stale: 0, wrongSource: 0, outOfOrder: 0, evicted: 0 });
     this.ids.clear();
     this.sourceId = sourceId;
     this.assetId = assetId;

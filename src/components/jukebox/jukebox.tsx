@@ -9,7 +9,7 @@ import { SourceLibrary, readinessOf } from "@/components/jukebox/library";
 import { ListeningPanel } from "@/components/jukebox/listening-panel";
 import { PlaybackBar } from "@/components/jukebox/playback-bar";
 import { Stage } from "@/components/jukebox/stage";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBackendHealth, useController, useEventFeed, usePreferences, usePreparedMedia } from "@/hooks/use-jukebox";
 import { getManifestAsset, renditionsFor } from "@/registry/manifest";
 import { SOURCES, getSource } from "@/registry/sources";
@@ -107,43 +107,51 @@ export function Jukebox() {
         </nav>
 
         <main id="main" tabIndex={-1} className="order-1 min-w-0 space-y-3 focus:outline-none lg:order-2">
-          <Tabs value={view} onValueChange={(v) => setView(v as View)}>
+          <Tabs
+            value={view}
+            onValueChange={(v) => {
+              if (v === "events") controller?.pause();
+              setView(v as View);
+            }}
+            className="gap-3"
+          >
             <TabsList aria-label="Workspace view">
               <TabsTrigger value="nasa">NASA visualizations (sonified)</TabsTrigger>
               <TabsTrigger value="events" data-testid="events-tab">
                 Backend events globe
               </TabsTrigger>
             </TabsList>
+
+            {prepared.status === "missing" ? (
+              <p role="status" className="rounded-lg border border-amber-300/30 bg-amber-300/5 p-3 text-sm text-amber-100">
+                {prepared.message} Sources whose NASA original is already browser-compatible still play through the restricted same-origin route.
+              </p>
+            ) : null}
+
+            <TabsContent value="nasa" className="space-y-3">
+              {source && asset && controller ? (
+                <>
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div key={source.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+                      <Stage source={source} asset={asset} renditions={renditions} controller={controller} snap={snap} preferences={{ reducedMotion, decorativeAnimation: prefs.decorativeAnimation }} />
+                    </motion.div>
+                  </AnimatePresence>
+                  <PlaybackBar controller={controller} snap={snap} showSpectrum={prefs.showSpectrum} reducedMotion={reducedMotion} />
+                </>
+              ) : (
+                <div className="grid min-h-64 place-items-center rounded-xl border border-border bg-card/70 text-sm text-muted-foreground" role="status">
+                  Loading the visualization library…
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="events">
+              <EventsView feed={feed} autoRotate={animate} />
+            </TabsContent>
           </Tabs>
-
-          {prepared.status === "missing" ? (
-            <p role="status" className="rounded-lg border border-amber-300/30 bg-amber-300/5 p-3 text-sm text-amber-100">
-              {prepared.message} Sources whose NASA original is already browser-compatible still play through the restricted same-origin route.
-            </p>
-          ) : null}
-
-          {view === "nasa" ? (
-            source && asset && controller ? (
-              <>
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div key={source.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-                    <Stage source={source} asset={asset} renditions={renditions} controller={controller} snap={snap} preferences={{ reducedMotion, decorativeAnimation: prefs.decorativeAnimation }} />
-                  </motion.div>
-                </AnimatePresence>
-                <PlaybackBar controller={controller} snap={snap} showSpectrum={prefs.showSpectrum} reducedMotion={reducedMotion} />
-              </>
-            ) : (
-              <div className="grid min-h-64 place-items-center rounded-xl border border-border bg-card/70 text-sm text-muted-foreground" role="status">
-                Loading the visualization library…
-              </div>
-            )
-          ) : (
-            <EventsView feed={feed} autoRotate={animate} />
-          )}
         </main>
 
         <aside aria-label="Listening panel" className="order-3">
-          <ListeningPanel source={view === "nasa" ? source : null} snap={snap} controller={controller} health={health} />
+          <ListeningPanel source={view === "nasa" ? source : null} snap={snap} controller={controller} health={health} eventsView={view === "events"} />
         </aside>
       </div>
 

@@ -44,7 +44,7 @@ export interface AnalysisProfile {
   signal: { minLum: number; minSat: number; brightLum: number; description: string };
   /** Colour groups active per phase id; "default" is used when no phase applies. */
   colorGroupsByPhase: Record<string, ColorGroup[]>;
-  /** Normalisation ceiling for the mean absolute luminance change between samples. */
+  /** Normalisation ceiling for the mean absolute luma change per presentation second (calibrated p90). */
   changeNormMax: number;
 }
 

@@ -117,7 +117,8 @@ export class LocalVideoFeatureProvider implements FeatureProvider {
       return;
     }
     const phase = phaseAt(this.deps.source, t);
-    const r = extractFeatures({ data, width: w, height: h, profile: this.deps.source.analysis as AnalysisProfile, phaseId: phase?.id ?? null, prevLuma: this.prevLuma });
+    const interval = this.prevLuma ? t - this.lastSampleT : null;
+    const r = extractFeatures({ data, width: w, height: h, profile: this.deps.source.analysis as AnalysisProfile, phaseId: phase?.id ?? null, prevLuma: this.prevLuma, sampleIntervalS: interval });
     this.prevLuma = r.luma;
     this.lastSampleT = t;
     const frame: FeatureFrame = { ...baseFrame(this.deps, this.seq++, t, "frontend-local"), features: r.features };
@@ -211,7 +212,7 @@ export function computeScanFrames(
     };
     const t = k / rateHz;
     const phase = phaseAt(source, t);
-    const r = extractFeatures({ data: band, width: bandPx, height: h, profile: local, phaseId: phase?.id ?? null, prevLuma: prev });
+    const r = extractFeatures({ data: band, width: bandPx, height: h, profile: local, phaseId: phase?.id ?? null, prevLuma: prev, sampleIntervalS: 1 / rateHz });
     prev = r.luma;
     out.push({ ...base(k, t), presentationSpanS: 1 / rateHz, features: r.features });
   }

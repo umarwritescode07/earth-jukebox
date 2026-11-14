@@ -15,6 +15,13 @@ import type {
 } from "@/registry/types";
 
 const PENTATONIC = [0, 2, 4, 7, 9];
+
+/*
+ * Normalisation ceilings (signalForFullPad, shareForFullVelocity, changeNormMax)
+ * are the ~p90 of each feature measured on the prepared NASA rendition with
+ * tests/calibration/media.calibration.ts (2 samples/s, same extraction code).
+ * Values above the ceiling are clipped, so loud moments stay bounded.
+ */
 const SVS = "https://svs.gsfc.nasa.gov/vis/a000000";
 
 function sonification(overrides: Partial<SonificationProfile> = {}): SonificationProfile {
@@ -101,7 +108,7 @@ const nightLightsAnalysis: AnalysisProfile = {
   exclude: [
     { x0: 0.46, y0: 0.42, x1: 0.6, y1: 0.61, reason: "Centre year label and change colour bar ('Change in Lighting Intensity from 2012 to 2023')." },
   ],
-  signal: { minLum: 0.12, minSat: 0.18, brightLum: 0.55, description: "Coloured or bright pixels; the grey land/ice base map and black background are ignored." },
+  signal: { minLum: 0.12, minSat: 0.15, brightLum: 0.55, description: "Coloured or bright pixels; the grey land/ice base map and black background are ignored." },
   colorGroupsByPhase: {
     "annual-global": [nlLights],
     "annual-insets": [nlLights],
@@ -112,7 +119,7 @@ const nightLightsAnalysis: AnalysisProfile = {
     "transition-3": [],
     default: [],
   },
-  changeNormMax: 0.04,
+  changeNormMax: 0.002,
 };
 
 /* ------------------------------------------------------------------ */
@@ -166,7 +173,7 @@ export const SOURCES: SourceDefinition[] = [
       evidence: "Year label transitions found by frame differencing (frames 15, 33, 51, 69, 86, 104, 122, 139, 157, 175, 193 and 830 … 1008) and read visually; see docs/SOURCES.md.",
     },
     analysis: nightLightsAnalysis,
-    sonification: sonification({ rootMidi: 50, shareForFullVelocity: 0.012, signalForFullPad: 0.03, noteThreshold: 0.0004 }),
+    sonification: sonification({ rootMidi: 50, shareForFullVelocity: 0.012, signalForFullPad: 0.024, noteThreshold: 0.0004 }),
     mapping: [
       { feature: "Share of lit/coloured pixels", origin: "image-derived", sound: "Pad loudness", detail: "More lit pixels → louder sustained pad (smoothed over 0.6 s)." },
       { feature: "Annual-average lights (warm pixels)", origin: "image-derived", sound: "Glass voice", detail: "Their mean brightness sets the pitch; their share sets how loud each note is." },
@@ -239,9 +246,9 @@ export const SOURCES: SourceDefinition[] = [
           { id: "warm", label: "Yellow–red flows (warm end)", meaning: "Yellow (≈25 °C) to red (32 °C) section of the colour bar.", evidence: "NASA colour bar caption.", swatch: "#f0402a", hue: [355, 62], minSat: 0.4, minLum: 0.12, voice: "bell" },
         ],
       },
-      changeNormMax: 0.05,
+      changeNormMax: 0.017,
     },
-    sonification: sonification({ rootMidi: 45, shareForFullVelocity: 0.25, signalForFullPad: 0.6, noteThreshold: 0.01 }),
+    sonification: sonification({ rootMidi: 45, shareForFullVelocity: 0.15, signalForFullPad: 0.45, noteThreshold: 0.01 }),
     mapping: [
       { feature: "Share of flow-line pixels", origin: "image-derived", sound: "Pad loudness", detail: "Smoothed share of coloured flow pixels." },
       { feature: "Blue–cyan hue band", origin: "image-derived", sound: "Glass voice (low)", detail: "Hue band of the colour bar, not a temperature value." },
@@ -306,9 +313,9 @@ export const SOURCES: SourceDefinition[] = [
           { id: "deep-blue", label: "Blue–cyan trails (deeper than 600 m)", meaning: "Flows deeper than 600 m on the blue–cyan–white table.", evidence: "NASA colour-bar caption for the beauty version.", swatch: "#1e9bff", hue: [185, 240], minSat: 0.5, minLum: 0.38, voice: "reed" },
         ],
       },
-      changeNormMax: 0.06,
+      changeNormMax: 0.14,
     },
-    sonification: sonification({ rootMidi: 43, shareForFullVelocity: 0.08, signalForFullPad: 0.25 }),
+    sonification: sonification({ rootMidi: 43, shareForFullVelocity: 0.08, signalForFullPad: 0.32, noteThreshold: 0.002 }),
     mapping: [
       { feature: "Share of bright trail pixels", origin: "image-derived", sound: "Pad loudness", detail: "Smoothed; strongly affected by zoom level." },
       { feature: "White trails", origin: "image-derived", sound: "Glass voice", detail: "Ambiguous colour (see cautions)." },
@@ -368,7 +375,7 @@ export const SOURCES: SourceDefinition[] = [
           { id: "orange", label: "Orange–red panels (PM2.5 and CO share these hues)", meaning: "PM2.5 and CO panels both use orange tones, so they are not separated.", evidence: "On-screen panel labels in the selected asset.", swatch: "#ef8a2a", hue: [0, 52], minSat: 0.35, minLum: 0.1, voice: "bell" },
         ],
       },
-      changeNormMax: 0.05,
+      changeNormMax: 0.12,
     },
     sonification: sonification({ rootMidi: 48, shareForFullVelocity: 0.35, signalForFullPad: 0.9, noteThreshold: 0.02 }),
     mapping: [
@@ -429,16 +436,16 @@ export const SOURCES: SourceDefinition[] = [
     analysis: {
       sampleWidth: 256,
       exclude: [{ x0: 0.76, y0: 0.9, x1: 1, y1: 1, reason: "Burned-in date stamp." }],
-      signal: { minLum: 0.18, minSat: 0.25, brightLum: 0.6, description: "Coloured or bright CO₂ shading; black space ignored." },
+      signal: { minLum: 0.18, minSat: 0.25, brightLum: 0.45, description: "Coloured or bright CO₂ shading; black space ignored." },
       colorGroupsByPhase: {
         default: [
           { id: "dense", label: "Orange–red shading (dense end)", meaning: "High end of NASA's colour/opacity transfer function.", evidence: "NASA colour bar image.", swatch: "#e2401b", hue: [0, 32], minSat: 0.5, minLum: 0.2, voice: "bell" },
           { id: "pale", label: "Tan–white shading (lower end)", meaning: "Lower, semi-transparent end of the transfer function.", evidence: "NASA colour bar image.", swatch: "#d7c08e", hue: [25, 60], minSat: 0.08, maxSat: 0.5, minLum: 0.45, voice: "glass" },
         ],
       },
-      changeNormMax: 0.04,
+      changeNormMax: 0.027,
     },
-    sonification: sonification({ rootMidi: 47, shareForFullVelocity: 0.08, signalForFullPad: 0.3 }),
+    sonification: sonification({ rootMidi: 47, shareForFullVelocity: 0.012, signalForFullPad: 0.04, noteThreshold: 0.0008 }),
     mapping: [
       { feature: "Share of shaded pixels", origin: "image-derived", sound: "Pad loudness", detail: "Smoothed; the visible hemisphere changes with the orbit." },
       { feature: "Orange–red shading", origin: "image-derived", sound: "Bell voice", detail: "No ppm value implied." },
@@ -460,10 +467,15 @@ export const SOURCES: SourceDefinition[] = [
     presentation: { kind: "video" },
     publication: { released: "2023-10-19", updated: "2025-03-28" },
     coverage: {
-      summary: "Lightning detected by the ISS Lightning Imaging Sensor, January 2017 – July 2023, shown with a 10-day roving window. A date stamp is burned into the video.",
-      start: "2017-01",
+      summary: "Lightning detected by the ISS Lightning Imaging Sensor through July 2023, shown with a 10-day roving window. A date stamp is burned into the video. NASA's captions disagree on the start month.",
+      start: "2017",
       end: "2023-07",
-      basis: "NASA page description.",
+      basis: "NASA page captions and the selected video's burned-in date stamp.",
+      conflicts: [
+        "Main caption (selected media group): 'between January 2017 and July 2023'.",
+        "Science On a Sphere caption on the same page: 'between March 2017 and July 2023'.",
+        "The selected video's burned-in date reads 'Mar 01 2017 03:32' at 0.5 s (checked on the NASA file's frames).",
+      ],
     },
     summary: "Lightning events from the quality-controlled ISS LIS science dataset, accumulated in a 10-day roving window on a rotating globe.",
     pageDescription:
@@ -497,9 +509,9 @@ export const SOURCES: SourceDefinition[] = [
           { id: "lightning", label: "Yellow lightning glows", meaning: "Lightning detections in the 10-day window.", evidence: "NASA page description; glows are the only saturated yellow elements.", swatch: "#ffd21f", hue: [35, 65], minSat: 0.5, minLum: 0.35, voice: "pluck" },
         ],
       },
-      changeNormMax: 0.03,
+      changeNormMax: 0.034,
     },
-    sonification: sonification({ rootMidi: 52, shareForFullVelocity: 0.004, signalForFullPad: 0.006, noteThreshold: 0.0002 }),
+    sonification: sonification({ rootMidi: 52, shareForFullVelocity: 0.005, signalForFullPad: 0.006, noteThreshold: 0.0003 }),
     mapping: [
       { feature: "Share of lightning-glow pixels", origin: "image-derived", sound: "Pad loudness + pluck voice", detail: "More displayed activity → louder and denser. Not a strike count." },
       { feature: "Glow brightness", origin: "image-derived", sound: "Pluck pitch", detail: "Brighter glow → higher pitch." },
@@ -559,9 +571,9 @@ export const SOURCES: SourceDefinition[] = [
           { id: "white", label: "White elements (streamlines, snow, labels)", meaning: "Mixed meaning: wind streamlines, snow and pressure labels are all white.", evidence: "Visual inspection of the asset and NASA surface legend.", swatch: "#f2f4f7", hue: [0, 360], minSat: 0, maxSat: 0.15, minLum: 0.8, voice: "glass" },
         ],
       },
-      changeNormMax: 0.05,
+      changeNormMax: 0.11,
     },
-    sonification: sonification({ rootMidi: 46, shareForFullVelocity: 0.2, signalForFullPad: 0.4 }),
+    sonification: sonification({ rootMidi: 46, shareForFullVelocity: 0.1, signalForFullPad: 0.33, noteThreshold: 0.002 }),
     mapping: [
       { feature: "Share of shaded pixels", origin: "image-derived", sound: "Pad loudness", detail: "Smoothed." },
       { feature: "Blue vapour shading", origin: "image-derived", sound: "Reed voice", detail: "Lightness → pitch, share → loudness." },
@@ -621,9 +633,9 @@ export const SOURCES: SourceDefinition[] = [
           { id: "tall", label: "Bright green (taller vegetation)", meaning: "Taller vegetation (white, the very top of the scale, is excluded).", evidence: "NASA page description and on-screen colour bar.", swatch: "#b9e07a", hue: [55, 110], minSat: 0.25, minLum: 0.45, voice: "bell" },
         ],
       },
-      changeNormMax: 0.03,
+      changeNormMax: 0.037,
     },
-    sonification: sonification({ rootMidi: 45, shareForFullVelocity: 0.08, signalForFullPad: 0.3 }),
+    sonification: sonification({ rootMidi: 45, shareForFullVelocity: 0.1, signalForFullPad: 0.4, noteThreshold: 0.002 }),
     mapping: [
       { feature: "Share of vegetation pixels", origin: "image-derived", sound: "Pad loudness", detail: "Smoothed." },
       { feature: "Brown–dark green pixels", origin: "image-derived", sound: "Reed voice (low)", detail: "Shorter vegetation colour family." },
@@ -682,7 +694,7 @@ export const SOURCES: SourceDefinition[] = [
     analysis: {
       sampleWidth: 480,
       exclude: [],
-      signal: { minLum: 0.2, minSat: 0.15, brightLum: 2, description: "Coloured aerosol pixels; grey land, dark ocean and city lights ignored." },
+      signal: { minLum: 0.2, minSat: 0.08, brightLum: 2, description: "Coloured aerosol pixels; grey land, dark ocean and city lights ignored." },
       colorGroupsByPhase: {
         default: [
           { id: "black-carbon", label: "Black Carbon / smoke (red-orange)", meaning: "Legend: 'Black Carbon'. Page text: 'smoke from fires (orange/red)'.", evidence: "NASA legend swatch rgb(210,94,69), hue ≈11°.", swatch: "#d25e45", hue: [355, 28], minSat: 0.4, minLum: 0.25, voice: "reed" },
@@ -691,9 +703,9 @@ export const SOURCES: SourceDefinition[] = [
           { id: "sulfate", label: "Sulfate (green)", meaning: "Legend: 'Sulfate'. Page text: 'sulfates from pollution and volcanoes (green)'.", evidence: "NASA legend swatch rgb(83,220,52), hue ≈109°.", swatch: "#53dc34", hue: [85, 140], minSat: 0.45, minLum: 0.25, voice: "bell" },
         ],
       },
-      changeNormMax: 0.08,
+      changeNormMax: 0.16,
     },
-    sonification: sonification({ rootMidi: 48, stepS: 0.25, smoothingS: 0.35, shareForFullVelocity: 0.25, signalForFullPad: 0.5, noteThreshold: 0.01 }),
+    sonification: sonification({ rootMidi: 48, stepS: 0.25, smoothingS: 0.35, shareForFullVelocity: 0.05, signalForFullPad: 0.34, noteThreshold: 0.004 }),
     mapping: [
       { feature: "Share of aerosol-coloured pixels in the scan band", origin: "image-derived", sound: "Pad loudness", detail: "The band sweeps left → right over 48 s." },
       { feature: "Black carbon / smoke", origin: "image-derived", sound: "Reed voice", detail: "Lightness → pitch, share → loudness." },

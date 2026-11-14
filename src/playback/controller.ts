@@ -136,7 +136,13 @@ export class PlaybackController {
       hearing: null,
       metrics: emptyMetrics(),
     };
-    if (typeof window !== "undefined") void preloadTone();
+    // Importing Tone.js creates an AudioContext, so defer it to the first user interaction
+    // (browsers refuse to start audio without one, and warn if a context is created earlier).
+    if (typeof window !== "undefined") {
+      const warm = () => void preloadTone();
+      window.addEventListener("pointerdown", warm, { once: true, capture: true });
+      window.addEventListener("keydown", warm, { once: true, capture: true });
+    }
   }
 
   /* ---------------- store plumbing ---------------- */
@@ -171,7 +177,22 @@ export class PlaybackController {
     return {
       metrics: { ...this.live },
       timeline: { ...this.timeline.stats, size: this.timeline.size, generation: this.timeline.generation },
-      engine: this.engine ? { notes: this.engine.metrics.notes, pulses: this.engine.metrics.pulses, leadTimesS: [...this.engine.metrics.leadTimesS] } : null,
+      engine: this.engine
+        ? {
+            notes: this.engine.metrics.notes,
+            pulses: this.engine.metrics.pulses,
+            leadTimesS: [...this.engine.metrics.leadTimesS],
+            outputRms: (() => {
+              const w = this.engine.waveform();
+              let sum = 0;
+              for (let i = 0; i < w.length; i++) sum += w[i] * w[i];
+              return Math.sqrt(sum / w.length);
+            })(),
+            audioState: this.engine.state,
+          }
+        : null,
+      sourceId: this.source?.id ?? null,
+      timelineSources: [...new Set(this.timeline.all().map((f) => f.sourceId))],
       provider: this.provider ? { mode: this.provider.mode, ...("stats" in this.provider ? (this.provider as BackendFeatureProvider).stats : {}) } : null,
     };
   }
@@ -240,6 +261,9 @@ export class PlaybackController {
     switch (e.type) {
       case "ready": {
         this.clock.durationS = e.durationS;
+        // A remounted renderer (e.g. after switching views) starts at 0: bring it to the clock position.
+        const pos = this.clock.now();
+        if (pos > 0 && Math.abs(this.port.mediaTime() - pos) > 0.05) this.port.seek(Math.min(pos, e.durationS));
         this.update({ durationS: e.durationS, ...(this.snap.status === "loading" ? { status: "ready" as const, statusDetail: null } : {}) });
         if (!this.provider) this.attachProvider();
         break;

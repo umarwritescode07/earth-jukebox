@@ -76,6 +76,8 @@ export interface ExtractInput {
   phaseId: string | null;
   /** Luma of the previous sample at the same resolution (and band), for the change feature. */
   prevLuma: Float32Array | null;
+  /** Presentation seconds since the previous sample; change is reported per second so it is rate-independent. */
+  sampleIntervalS: number | null;
   band?: Band;
 }
 
@@ -123,7 +125,7 @@ export function analysisMask(width: number, height: number, profile: AnalysisPro
 }
 
 export function extractFeatures(input: ExtractInput): ExtractResult {
-  const { data, width, height, profile, phaseId, prevLuma, band } = input;
+  const { data, width, height, profile, phaseId, prevLuma, band, sampleIntervalS } = input;
   const n = width * height;
   if (data.length < n * 4) throw new Error(`pixel buffer too small: ${data.length} < ${n * 4}`);
   const mask = analysisMask(width, height, profile, band);
@@ -135,7 +137,7 @@ export function extractFeatures(input: ExtractInput): ExtractResult {
   let signal = 0;
   let signalLight = 0;
   let changeSum = 0;
-  const comparable = prevLuma !== null && prevLuma.length === n;
+  const comparable = prevLuma !== null && prevLuma.length === n && sampleIntervalS !== null && sampleIntervalS > 0;
   const { minLum, minSat, brightLum } = profile.signal;
 
   for (let i = 0; i < n; i++) {
@@ -198,9 +200,14 @@ export function extractFeatures(input: ExtractInput): ExtractResult {
     );
   }
 
-  const changeNorm = { method: "fixed-range" as const, min: 0, max: profile.changeNormMax, note: "Mean absolute luma difference to the previous sample, divided by this max and clipped to 1." };
+  const changeNorm = {
+    method: "fixed-range" as const,
+    min: 0,
+    max: profile.changeNormMax,
+    note: "Mean absolute luma difference to the previous sample per presentation second, divided by this max (calibrated p90) and clipped to 1.",
+  };
   if (comparable && analysed > 0) {
-    features.push(ok("change", "Frame-to-frame change", Math.min(1, changeSum / analysed / profile.changeNormMax), "normalized", changeNorm));
+    features.push(ok("change", "Frame-to-frame change", Math.min(1, changeSum / analysed / (sampleIntervalS as number) / profile.changeNormMax), "normalized", changeNorm));
   } else {
     features.push(absent("change", "Frame-to-frame change", "normalized", "missing", changeNorm));
   }
