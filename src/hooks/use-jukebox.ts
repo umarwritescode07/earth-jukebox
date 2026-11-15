@@ -279,13 +279,13 @@ const FALLBACK_REASONS: Record<string, string> = {
   "backend-invalid-payload": "The backend response failed validation.",
 };
 
-/** Loads /api/ocean-temp and reports honestly whether the data came from the backend or the sample. */
+
 export function useOceanTempSeries(): OceanTempState & { reload: () => void } {
   const [state, setState] = useState<OceanTempState>({ status: "loading", records: [], rejected: 0, reason: null, error: null });
   const [nonce, setNonce] = useState(0);
   useEffect(() => {
     const ctl = new AbortController();
-    fetch("/api/ocean-temp", { signal: ctl.signal, cache: "no-store" })
+    fetch("/api/ocean", { signal: ctl.signal, cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const source = r.headers.get("x-ejb-data-source");
