@@ -1,0 +1,12 @@
+[
+  { "date": "20230101", "temperature_celsius": 25.32, "ocean_intensity": 6.2 },
+  { "date": "20230102", "temperature_celsius": 25.65, "ocean_intensity": 7.71 },
+  { "date": "20230103", "temperature_celsius": 25.68, "ocean_intensity": 7.67 },
+  { "date": "20230104", "temperature_celsius": 25.64, "ocean_intensity": 7.2 },
+  { "date": "20230105", "temperature_celsius": 25.52, "ocean_intensity": 6.05 },
+  { "date": "20230106", "temperature_celsius": 25.41, "ocean_intensity": 5.17 },
+  { "date": "20230107", "temperature_celsius": 25.81, "ocean_intensity": 4.98 },
+  { "date": "20230108", "temperature_celsius": 25.85, "ocean_intensity": 5.18 },
+  { "date": "20230109", "temperature_celsius": 26.04, "ocean_intensity": 6.48 },
+  { "date": "20230110", "temperature_celsius": 25.93, "ocean_intensity": 6.79 }
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "title": "Wildfire Red Hill, Perry, Mississippi",
+    "category": "Wildfires",
+    "date": "2026-11-12T00:22:00Z",
+    "latitude": 31.130069,
+    "longitude": -89.063853
+  },
+  {
+    "title": "Prescribed Fire Bienville CPT 29 Sub 2 RX, Scott, Mississippi",
+    "category": "Wildfires",
+    "date": "2026-11-11T09:57:00Z",
+    "latitude": 32.425,
+    "longitude": -89.5974
+  },
+  {
+    "title": "Prescribed Fire Compartment 170 RX, Greene, Georgia",
+    "category": "Wildfires",
+    "date": "2026-11-09T16:30:00Z",
+    "latitude": 33.747313,
+    "longitude": -83.259363
+  },
+  {
+    "title": "Typhoon Cempaka",
+    "category": "Severe Storms",
+    "date": "2026-11-11T12:00:00Z",
+    "latitude": 30.2,
+    "longitude": 154.1
+  },
+  {
+    "title": "Tropical Storm Pena",
+    "category": "Severe Storms",
+    "date": "2026-11-12T12:00:00Z",
+    "latitude": 9.8,
+    "longitude": -173.2
+  }
+]
